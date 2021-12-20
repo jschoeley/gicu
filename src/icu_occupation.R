@@ -25,7 +25,7 @@ paths$output <- list(
 
 # constants specific to this analysis
 cnst <- list(); cnst <- within(cnst, {
-  start = '2021-09-01'
+  start = '2021-10-01'
   statekey = read_csv(paths$input$statekey)
   language = 'en'
 })
@@ -85,16 +85,20 @@ dat$germany_outline_long <-
 fig$intensiv <- list()
 
 fig$intensiv$cnst <- list(
-  color_free = '#CCCCCC',
+  color_free = 'grey75',
   color_noncovid = '#00A18D',
-  color_covid = '#004444',
+  color_covid = '#F6B715',
+  color_text = 'grey90',
+  color_source = 'grey50',
   scaler = 1.8,
-  family_title = 'Roboto',
+  family_title = 'Roboto Slab',
   family_labels = 'Roboto Condensed',
-  fill_germany = NA,
-  color_germany = 'grey70',
+  fill_germany = 'grey5',
+  fill_background = 'grey10',
+  color_germany = NA,
+  color_region_labels = 'grey90',
   size_germany = 3,
-  color_waffle_grid = 'white',
+  color_waffle_grid = 'grey10',
   size_tiles = 0.2
 )
 
@@ -137,8 +141,8 @@ fig$intensiv$label_positions <-
   fig$intensiv$data %>%
   group_by(state_long, state_short) %>%
   summarise(x = min(x, na.rm = T), y = max(y, na.rm = T)) %>%
-  mutate(state_long = ifelse(state_short == 'ST', 'Sachsen-\nAnhalt', state_long))
-
+  mutate(state_long = ifelse(state_short == 'ST', 'Sachsen-\nAnhalt', state_long)) %>%
+  ungroup()
 
 # Test if pixels in grid are enough -------------------------------
 
@@ -187,7 +191,7 @@ fig$intensiv$labels <- list(
   ),
   title = c(
     de = 'Belegung der Intensivbetten am {format(lubridate::as_date(frame_time), format = "%e. %b %y")}',
-    en = 'Occupation of German ICU beds as of {format(lubridate::as_date(frame_time), format = "%e. %b %y")}'
+    en = 'Occupation of German ICU beds as of {format(lubridate::as_date(frame_time), format = "%b %e %Y")}'
   )
 )
 # select language
@@ -195,7 +199,7 @@ fig$intensiv$labels <- lapply(fig$intensiv$labels, function (x) x[cnst$language]
 
 fig$intensiv$plot <-
   fig$intensiv$data %>%
-  #filter(date >= '2021-12-01') %>%
+  #filter(date >= '2021-12-10') %>%
   filter(date >= cnst$start) %>%
   ggplot() +
   geom_polygon(
@@ -217,19 +221,21 @@ fig$intensiv$plot <-
     family = fig$intensiv$cnst$family_labels,
     size = 2.7*fig$intensiv$cnst$scaler,
     lineheight = 0.8,
+    color = fig$intensiv$cnst$color_region_labels,
     data = fig$intensiv$label_positions, nudge_y = 1
   ) +
   annotate(
     'text', x = 2, y = -12, vjust = 0, hjust = 0,
     size = 3*fig$intensiv$cnst$scaler,
     family = fig$intensiv$cnst$family_labels,
-    label = fig$intensiv$labels$explain1
+    label = fig$intensiv$labels$explain1,
+    color = fig$intensiv$cnst$color_region_labels
   ) +
   annotate(
     'text', x = 172, y = -170, vjust = 0, hjust = 0,
     size = 3*fig$intensiv$cnst$scaler,
     family = fig$intensiv$cnst$family_labels,
-    color = 'black',
+    color = fig$intensiv$cnst$color_region_labels,
     lineheight = 0.8,
     label = fig$intensiv$labels$explain2
   ) +
@@ -237,7 +243,7 @@ fig$intensiv$plot <-
     'text', x = 172, y = -170-20, vjust = 0, hjust = 0,
     size = 3*fig$intensiv$cnst$scaler,
     family = fig$intensiv$cnst$family_labels,
-    color = 'grey50', lineheight = 0.8,
+    color = fig$intensiv$cnst$color_free, lineheight = 0.8,
     label = fig$intensiv$labels$explain3
   ) +
   annotate(
@@ -258,28 +264,39 @@ fig$intensiv$plot <-
     'text', x = 10, y = -249, vjust = 0, hjust = 0,
     size = 2.5*fig$intensiv$cnst$scaler,
     family = fig$intensiv$cnst$family_labels,
-    color = 'black', lineheight = 0.8,
-    label = fig$intensiv$labels$source
+    color = fig$intensiv$cnst$color_source, lineheight = 0.8,
+    label = fig$intensiv$labels$source, alpha = 0.1
   ) +
-    labs(title = fig$intensiv$labels$title) +
-    coord_equal(expand = FALSE, xlim = c(1,dim(dat$stategrid)[2]),
-                ylim = c(-dim(dat$stategrid)[1], -1)) +
-  theme_void() +
+  labs(title = fig$intensiv$labels$title) +
+  coord_equal(expand = FALSE, xlim = c(1,dim(dat$stategrid)[2]),
+              ylim = c(-dim(dat$stategrid)[1], -1)) +
   scale_fill_identity() +
+  theme_void() +
   theme(
     plot.title =
       element_text(family = fig$intensiv$cnst$family_title,
                    size = 10*fig$intensiv$cnst$scaler,
-                   vjust = -3, hjust = 0)
+                   face = 'bold',
+                   vjust = -2, hjust = 0),
+    plot.background =
+      element_rect(fill = fig$intensiv$cnst$fill_background, color = NA),
+    panel.background = 
+      element_rect(fill = fig$intensiv$cnst$fill_background, color = NA),
+    text = element_text(color = fig$intensiv$cnst$color_text)
   ) +
   transition_time(date) +
   enter_appear() +
   exit_disappear()
+fig$intensiv$plot
 
 animate(
   fig$intensiv$plot,
-  height = dim(dat$stategrid)[2]*4,
-  width = dim(dat$stategrid)[1]*3.2,
-  nframes = 400, duration = 20,
-  rewind = FALSE, end_pause = 100
+  height = nrow(dat$stategrid)*1.2,
+  width = ncol(dat$stategrid)*1.2,
+  units = 'mm', res = 100,
+  nframes = fig$intensiv$data$date %>% unique() %>% length() + 10, duration = 20,
+  rewind = FALSE, end_pause = 10,
+  bg = fig$intensiv$cnst$fill_background
 )
+
+anim_save(path = paths$output$tmpdir)
